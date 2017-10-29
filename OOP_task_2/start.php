@@ -1,11 +1,11 @@
 <?php
-    session_start();
-    $_SESSION['count'] = 0;
-    $data = $_POST['play'];
-    if ($data) {
-        $_SESSION['checkUser'] = $_POST['player'];
-        header('Location: http://oop/OOP/OOP_task_2/index.php');
-    }
+session_start();
+$_SESSION['count'] = 0;
+$data = $_POST['play'];
+if ($data) {
+    $_SESSION['checkUser'] = $_POST['player'];
+    header('Location: http://oop/OOP/OOP_task_2/index.php');
+}
 ?>
 
 <!DOCTYPE html>
@@ -42,6 +42,7 @@
 –––––––––––––––––––––––––––––––––––––––––––––––––– -->
 <div class="container">
     <div class="row">
+        <h1 style="text-align: center;margin-top: 30px">Game city</h1>
         <div class="twelve columns" style="margin-top: 25%; text-align: center;">
             <form action="" method="post">
                 <label for="">Are you playing game with me?</label>

@@ -1,7 +1,10 @@
 <?php
+
 session_start();
+$_SESSION['cities'];
 $_SESSION['city'];
 $_SESSION['letter'];
+
 ?>
 
 <?php
@@ -26,17 +29,18 @@ class DataBase
 {
     private $dbHost, $dbLogin, $dbPassword, $dbName; // свойства по БД
     public $link;
-    public $resultQueryDB;
     public $resultCreature; // сыойство для проверки на пустоту таблицы
 
-    public function __construct($host, $login, $password, $dbName) // Конструктор подключения к БД
+    public function __construct($host, $login, $password) // Конструктор подключения к БД
     {
         $this->dbHost = $host;
         $this->dbLogin = $login;
         $this->dbPassword = $password;
-        $this->dbName = $dbName;
 
-        $this->link = mysqli_connect($this->dbHost, $this->dbLogin, $this->dbPassword, $this->dbName);
+        $this->link = mysqli_connect($this->dbHost, $this->dbLogin, $this->dbPassword);
+        $this->createDB();
+        $this->connectTable();
+        $this->createTable();
         if (!$this->link) {
             echo "Ошибка: Невозможно установить соединение с MySQL." . PHP_EOL;
             echo "Код ошибки errno: " . mysqli_connect_errno() . PHP_EOL;
@@ -49,40 +53,52 @@ class DataBase
     {
         mysqli_close($this->link);
     }
-
+    private function createDB() // создание БД
+    {
+        mysqli_query($this->link, "CREATE DATABASE db_name");
+    }
+    public function connectTable() // Соединение с таблицей
+    {
+        mysqli_select_db($this->link,'db_name');
+    }
+    private function createTable() // создание таблицы
+    {
+        mysqli_query($this->link, "CREATE Table city (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,name VARCHAR(255) NOT NULL)");
+    }
     public function checkContentDBTable($nameTable) // проверка на существование содержимого БД;
     {
-        $result = mysqli_query($this->link,"SELECT * FROM $nameTable  LIMIT 1");
-        $this->resultCreature = $result->num_rows;
+        $result = mysqli_query($this->link,"SELECT id FROM $nameTable  LIMIT 1");
+        return $result;
+    }
+    public function selectCountInSideTable() // метод выборки количества городов в таблице
+    {
+        return mysqli_query($this->link, "SELECT id FROM city WHERE 1");
+    }
+    public function selectRandCity($randNumber) // метод выборки рандомного города и его id
+    {
+        return mysqli_query($this->link, "SELECT id, name FROM city WHERE id = '$randNumber'");
+    }
+    public function selectIDWithDb($cityName)  // метод выборки id
+    {
+        return mysqli_query($this->link, "SELECT id, name FROM city WHERE name = '$cityName'");
     }
     public function selectWithDB($with,$nameRow,$what)  // метод выборки БД
     {
-       return mysqli_query($this->link, "SELECT * FROM $with WHERE `$nameRow` LIKE '$what%'");
-    }
-    public function selectAllWithDB($with)  // метод выборки БД
-    {
-       return mysqli_query($this->link, "SELECT * FROM $with WHERE 1");
-    }
-    public function clearTableDB($with)  // чистка таблицы в БД
-    {
-        mysqli_query($this->link, "DELETE FROM $with WHERE 1");
-    }
-    public function clearCityDB($with,$what)  // чистка города в БД
-    {
-        mysqli_query($this->link,"DELETE FROM $with WHERE name='$what'");
+        return mysqli_query($this->link, "SELECT id, name FROM $with WHERE `$nameRow` LIKE '$what%'");
     }
     public function includeInDB($nameTable,$nameRow,$value) // метод вставки в БД
     {
-         mysqli_query($this->link, "INSERT INTO `$nameTable` (`$nameRow`) VALUE ('$value')");
+        mysqli_query($this->link, "INSERT INTO `$nameTable` (`$nameRow`) VALUE ('$value')");
     }
-    public function sortOut($array) // вывод mysqli_query результата в масси
+    public function sortObj($str) // вывод mysqli_query результата в массиd
     {
-            //Отображение результата в виде массива
-            while ($row = mysqli_fetch_assoc($array)) { // заносим в массив БД
-                $result[] = $row['name'];
-            }
-            return $result;
+        //Отображение результата в виде массива
+        while ($row = mysqli_fetch_object($str)) {
+            $result = $row;
+        }
+        return $result;
     }
+
 }
 
 class FileManager {
@@ -94,7 +110,7 @@ class FileManager {
     {
 
         if(!fopen($file,'r')){
-            echo "Файл не существует или отсутствует или неправильное название";
+            echo "Файл не существует или отсутствует или не правильное название";
         } else {
             $this->handle = fopen($file,'r');
             $this->fName = $file;
@@ -117,7 +133,7 @@ class Game
 {
     public function pregMatch($data) // метод проверки диапазона символов
     {
-        return preg_match('/^[а-яА-Я-]/i', $data);
+        return preg_match('/^[а-яА-ЯЧч-]{3,}/i', $data);
     }
     public function pregMatchSymbols($data) // метод проверки последнего символа
     {
@@ -136,147 +152,128 @@ class Game
     {
         return mb_substr($data,$start,$length,'UTF-8');
     }
+    public function checkCities($idCity)
+    {
+        $result = false;
+        foreach($_SESSION['cities'] as $key => $value) {
+            if ($key == $idCity){
+                $result = true;
+            }
+        }
+        return $result;
+    }
+    public function checkCitiesWas($city)
+    {
+        foreach($_SESSION['cities'] as $value) {
+            if ($value == $city){
+                $result = true;
+            }
+        }
+        return $result;
+    }
+    public function getRemark($fault)
+    {
+        if ($_SESSION['count'] == 1){
+            $_SESSION['count'] = 0;
+            $error = 'Достаточно,у тебя был шанс.Ты проиграл!!!';
+            $_SESSION['cities'] = array();
+            $_SESSION['city'] = '';
+        }  else {
+            $_SESSION['count']++;
+            $error = "Попробуй еще разок";
+        }
+        return $error;
+    }
 }
 
-$objDb = new DataBase('localhost','root','','cities');
+$objDb = new DataBase('localhost','root','');
 $objFile = new FileManager('city.txt');
 $objGame = new Game();
 
-if ($_SESSION['checkUser'] == 'PC'){ // если чекнут ПК
-    $objFile->getArrayFile(); // получаем массив
-    $objDb->checkContentDBTable('city'); // проверяем содержимое
-    if(!$objDb->resultCreature) { // если таблица пуста
-        foreach ($objFile->arrFile as $value) {
-            $value = mb_strtolower($value,'UTF-8');
-            $objDb->includeInDB('city','name',$value); // заполняем таблицу
+if ($_SESSION['checkUser'] == 'PC'){ // проверяем если чекнут первым ПК
+    $objFile->getArrayFile(); // выборка городов из файла в массив
+    $resultCreature = $objDb->checkContentDBTable('city'); // запрос в БД на существование содержимого
+    if(!$resultCreature->num_rows) { // проверяем пустой обьект или нет
+        foreach ($objFile->arrFile as $value) { // пробегаем по свойству(массив) и вытягиваем значения массива
+            $val = mb_strtolower($value,'UTF-8'); // заносим значения в нижнем регистра и кодировкой UTF-8
+            $objDb->includeInDB('city','name',$val); // наполняем таблицу в БД
         }
     }
-    $data = $_POST;
-    if ( isset($data['submit']) ) {
+    $data = $_POST; // заносим метод POST в переменную
+    if (isset($data['submit']) ) { // проверяем была ли определена переменная( Кликнута кнопка )
 
-        $errors = array();
-        if (!$objGame->pregMatch($data['cityEntered'])) {
-            $errors[] = "Ты ввел символы латиницей или числа со знаками,а это недопустимо.Только кириллица!!!";
-        } elseif (empty($data['cityEntered'])){
-            $errors[] = "Ты ввел пустую строку,а это недопустимо!!! ";
+        $errors = array(); // массив ошибок
+        if  (empty($data['cityEntered'])){ // проверка на пустую строку
+            $errors[] = "Ты ввел пустую строку,а это недопустимо!!! "; // заносим строку в массив ошибок
+        } elseif (!$objGame->pregMatch($data['cityEntered'])) { // проверяем на доступные символы
+            $errors[] = "Ты ввел символы латиницей или числа со знаками,или недопустимое колличество символов,а это недопустимо.Только кириллица и не меньше 3-х символов!!!"; // заносим строку в массив ошибок
+            $errors[] = "Города Украины не могут начинаться на Ы,Ь,Ъ,Ё,Й"; // заносим строку в массив ошибок
         }
 
-        if (empty($errors)) {
+        if (empty($errors)) { // проверяем пустой ли массив ошибок
             $city = $objGame->mbStrLower($data['cityEntered']); // конвертируем в нижний регист
             $firstLetterC = $objGame->mbSubStr($city,0,1); // срез первого символа
             $lastLetterC = $objGame->mbSubStr($city,-1,1); // срез второго символа
-            $cityCreature = $objDb->selectWithDB('city','name',$city); // проверка на присутствие города в таблице
-            $creatureCityWas = $objDb->selectWithDB('cityWas','name',$city); // проверка на присутствие города в таблице,который был
-
+            $response = in_array($city,$objFile->arrFile); // проверка на присутствие города в массиве
+            $creatureCityWas = $objGame->checkCitiesWas($city); // проверка на присутствие города в таблице,который был
             if($objGame->pregMatchSymbols($lastLetterC)){ // проверка на последний символ
                 $lastLetterC = $objGame->mbSubStr($city,-2,1); // срезаем предпоследний символ
             }
 
-            if ($cityCreature->num_rows) { // проверка на существование города в таблице
+            if ($response) { // проверка на существование города в таблице
                 if ($firstLetterC == $_SESSION['letter']) { // проверка на первый и последний символ города
-                    if (!$creatureCityWas->num_rows) { // проверка на существование города в таблице городов которые были
-
-                        $objDb->includeInDB('cityWas', 'name', $city); // записываем в таблицу городов которые были
-                        $objDb->clearCityDB('city',$city); // удаляем город с основной таблицы городов
-                        $arrayFirstLetter = $objDb->selectWithDB('city','name',$lastLetterC); // достаем все города на последний символ
-                        $response = $objDb->sortOut($arrayFirstLetter);  // выводим в массив
-                        if (!empty($response)) { // проверяем массив
-                            $randCity = $response[0]; // выводим первый город массива
-                            $_SESSION['towns'][$_SESSION['amount']++] = $randCity;
-                            $_SESSION['city'] = $randCity; // записываем город в сессию
-                            $lastLetter = $objGame->mbSubStr($randCity,-1,1);
+                    if (!$creatureCityWas) { // проверка на существование города в ctccbb городов которые были
+                        $idNameObj = $objDb->sortObj($objDb->selectIDWithDb($city));
+                        $_SESSION['cities'][$idNameObj->id] = $idNameObj->name;
+                        $arrayFirstLetter = $objDb->selectWithDB('city', 'name', $lastLetterC); // достаем все города на последний символ
+                        while ($row = mysqli_fetch_assoc($arrayFirstLetter)) {  // заносим в массив
+                            $result[$row['id']] = $row['name'];
+                        }
+                        if (!empty($result)) { // проверяем массив
+                            $res = array_diff($result,$_SESSION['cities']); // смотрим разницу массивов
+                            $firstElement = array_shift($res); // вытягиваем первый элемент массива
+                            $idNameObj = $objDb->selectIDWithDb($firstElement); // вытягиваем id и город с таблицы
+                            while ($row = mysqli_fetch_assoc($idNameObj)) {  // заносим в массив
+                                $resultCity = $row;
+                            }
+                            $_SESSION['cities'][$resultCity['id']] = $resultCity['name'];
+                            $_SESSION['city'] = $resultCity['name']; // записываем город в сессию
+                            $lastLetter = $objGame->mbSubStr($firstElement,-1,1);
                             $_SESSION['letter'] = $lastLetter;
-                            $objDb->clearCityDB('city',$randCity);
-                            $objDb->includeInDB('cityWas', 'name', $randCity);
                         } else {
                             echo 'PC game over';
-                            $cityCopyBd = $objDb->selectAllWithDB('cityWas');
-                            $objDb->clearTableDB('cityWas');
-                            while ($arrCopyDb = mysqli_fetch_object($cityCopyBd)) {
-                                $reply = mb_strtolower($arrCopyDb->name,'UTF-8');
-                                $objDb->includeInDB('city','name',$reply);
-                            }
+                            $_SESSION['cities'] = array();
                         }
 
                     }   else {
                         $replyErr = "Такой город уже был!!!";
-                        if ($_SESSION['count'] == 1){
-                            $cityCopyBd = $objDb->selectAllWithDB('cityWas');
-                            $objDb->clearTableDB('cityWas');
-                            while ($arrCopyDb = mysqli_fetch_object($cityCopyBd)) {
-                                $reply = mb_strtolower($arrCopyDb->name,'UTF-8');
-                                $objDb->includeInDB('city','name',$reply);
-                            }
-                            $_SESSION['count'] = 0;
-                            $error = 'Достаточно,у тебя был шанс.Ты проиграл!!!';
-                        }  else {
-                            $_SESSION['count']++;
-                            $error = "Попробуй еще разок";
-                        }
+                        $error = $objGame->getRemark($_SESSION['count']);
                     }
                 } else {
                     $replyErr = 'Твой город начинается не на последнюю букву моего города!!!';
-                    if ($_SESSION['count'] == 1){
-                        $cityCopyBd = $objDb->selectAllWithDB('cityWas');
-                        $objDb->clearTableDB('cityWas');
-                        while ($arrCopyDb = mysqli_fetch_object($cityCopyBd)) {
-                            $reply = mb_strtolower($arrCopyDb->name,'UTF-8');
-                            $objDb->includeInDB('city','name',$reply);
-                        }
-                        $_SESSION['count'] = 0;
-                        $error = 'Достаточно,у тебя был шанс.Ты проиграл!!!';
-                    }  else {
-                        $_SESSION['count']++;
-                        $error = "Попробуй еще разок";
-                    }
+                    $error = $objGame->getRemark($_SESSION['count']);
                 }
             } else {
                 $replyErr = 'Такого города не существует!!!';
-                if ($_SESSION['count'] == 1){
-                    $cityCopyBd = $objDb->selectAllWithDB('cityWas');
-                    $objDb->clearTableDB('cityWas');
-                    while ($arrCopyDb = mysqli_fetch_object($cityCopyBd)) {
-                        $reply = mb_strtolower($arrCopyDb->name,'UTF-8');
-                        $objDb->includeInDB('city','name',$reply);
-                    }
-                    $_SESSION['count'] = 0;
-                    $error = 'Достаточно,у тебя был шанс.Ты проиграл!!!';
-                }  else {
-                    $_SESSION['count']++;
-                    $error = "Попробуй еще разок";
-                }
+                $error = $objGame->getRemark($_SESSION['count']);
             }
 
         } else {
             $replyErr = '<div>' . array_shift($errors) . '</div>';
-            if ($_SESSION['count'] == 1){
-                $cityCopyBd = $objDb->selectAllWithDB('cityWas');
-                $objDb->clearTableDB('cityWas');
-                while ($arrCopyDb = mysqli_fetch_object($cityCopyBd)) {
-                    $reply = mb_strtolower($arrCopyDb->name,'UTF-8');
-                    $objDb->includeInDB('city','name',$reply);
-                }
-                $_SESSION['count'] = 0;
-                $error = 'Достаточно,у тебя был шанс.Ты проиграл!!!';
-            }  else {
-                $_SESSION['count']++;
-                $error = "Попробуй еще разок";
-            }
+            $error =  $error = "Введи корректные данные!";
         }
 
     } else {
-
-        $amountCities = count($objFile->arrFile); // количество городов(элементов массива)
-        $randCity = $objFile->arrFile[rand(0, $amountCities)];  // рандомный элемент массива с городами
-        $objDb->clearCityDB('city',$randCity);  // удаляем город с таблицы в БД
-
-        $lastLetterC = $objGame->mbSubStr($randCity,-1,1); // срезаем символ
+        $amountCities = $objDb->selectCountInSideTable();
+        $randomNumber = rand(0, $amountCities->num_rows); // рандомное число
+        $randCity = $objDb->selectRandCity($randomNumber); // Выборка с таблицы города по рандомному id(число) таблицы
+        $cityObj = $objDb->sortObj($randCity); // вытягиваем обьект таблицы(id,city)
+        $lastLetterC = $objGame->mbSubStr($cityObj->name,-1,1); // срезаем символ
         if($objGame->pregMatchSymbols($lastLetterC)){ // проверка на последний символ
-            $lastLetterC = $objGame->mbSubStr($randCity,-2,1); // срезаем предпоследний символ
+            $lastLetterC = $objGame->mbSubStr($cityObj->name,-2,1); // срезаем предпоследний символ
         }
-        $objDb->includeInDB('cityWas', 'name', $randCity ); // заносим в таблицу городов,которые уже были
-        $_SESSION['towns'][$_SESSION['amount']++] = $randCity;
-        $_SESSION['city'] = $randCity; // записываем город в сессию,на вывод в форму
+        $_SESSION['cities'][$cityObj->id] = $cityObj->name; // записываем id и name в массив Сессии
+        $_SESSION['city'] = $cityObj->name; // записываем город в сессию,на вывод в форму
         $_SESSION['letter'] = $lastLetterC; // записываем последний символ символ на проверку городов
         $_SESSION['count'] = 0; // ставим счетчик
     }
@@ -348,14 +345,11 @@ if ($_SESSION['checkUser'] == 'PC'){ // если чекнут ПК
     <div class="row">
         <div class="twelve columns">
             Города которые были: <br>
-        <?
-            $result = $objDb->sortOut($objDb->selectAllWithDB('cityWas'));
-            if (!empty($result)) {
-                foreach ($result as $v) {
-                    echo $v . "<br>";
-                }
+            <?
+            foreach($_SESSION['cities'] as $value) {
+                echo $value . "<br>";
             }
-        ?>
+            ?>
         </div>
     </div>
 </div>
