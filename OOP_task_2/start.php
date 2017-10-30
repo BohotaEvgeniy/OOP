@@ -4,7 +4,7 @@ $_SESSION['count'] = 0;
 $data = $_POST['play'];
 if ($data) {
     $_SESSION['checkUser'] = $_POST['player'];
-    header('Location: http://oop/OOP/OOP_task_2/index.php');
+    header('Location: index.php');
 }
 ?>
 
