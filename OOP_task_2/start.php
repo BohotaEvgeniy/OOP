@@ -4,6 +4,7 @@ $_SESSION['count'] = 0;
 $data = $_POST['play'];
 if ($data) {
     $_SESSION['checkUser'] = $_POST['player'];
+    $_SESSION['cities'] = array();
     header('Location: index.php');
 }
 ?>
