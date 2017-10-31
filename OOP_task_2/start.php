@@ -1,12 +1,10 @@
 <?php
+
 session_start();
 $_SESSION['count'] = 0;
 $data = $_POST['play'];
-if ($data) {
-    $_SESSION['checkUser'] = $_POST['player'];
-    $_SESSION['cities'] = array();
-    header('Location: index.php');
-}
+$_SESSION['cities'] = array();
+
 ?>
 
 <!DOCTYPE html>
@@ -45,7 +43,7 @@ if ($data) {
     <div class="row">
         <h1 style="text-align: center;margin-top: 30px">Game city</h1>
         <div class="twelve columns" style="margin-top: 25%; text-align: center;">
-            <form action="" method="post">
+            <form action="index.php" method="post">
                 <label for="">Are you playing game with me?</label>
                 <input type="submit" name="play" value="Play">
                 <p>
