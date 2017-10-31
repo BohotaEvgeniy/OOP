@@ -190,7 +190,7 @@ $objDb = new DataBase('localhost','root','');
 $objFile = new FileManager('city.txt');
 $objGame = new Game();
 
-if ($_SESSION['checkUser'] == 'PC'){ // проверяем если чекнут первым ПК
+if ($_POST['player'] == 'PC'){ // проверяем если чекнут первым ПК
     $objFile->getArrayFile(); // выборка городов из файла в массив
     $resultCreature = $objDb->checkContentDBTable('city'); // запрос в БД на существование содержимого
     if(!$resultCreature->num_rows) { // проверяем пустой обьект или нет
